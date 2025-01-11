@@ -1,50 +1,89 @@
 [
   {
+    "id": "build_1",
     "description": "Create a React todo app with local storage and dark mode theme",
-    "created_at": "2025-01-11T08:53:24.140785",
     "status": "pending",
     "todos": [
-      "1. Initialize new React project with create-react-app",
-      "2. Set up project structure (components, styles, etc.)",
-      "3. Install required dependencies (react-router, etc.)",
-      "4. Create basic component layout",
-      "5. Implement core functionality",
-      "6. Add styling and polish UI",
-      "7. Test all features",
-      "8. Build and verify deployment"
+      {
+        "task": "Initialize React project",
+        "status": "pending"
+      },
+      {
+        "task": "Set up project structure",
+        "status": "pending"
+      },
+      {
+        "task": "Add local storage functionality",
+        "status": "pending"
+      },
+      {
+        "task": "Implement dark mode theme",
+        "status": "pending"
+      },
+      {
+        "task": "Add tests",
+        "status": "pending"
+      }
     ],
-    "current_step": 0
+    "created_at": "2024-01-11T12:00:00",
+    "updated_at": "2024-01-11T12:00:00"
   },
   {
-    "description": "Create a React todo app with local storage and dark mode theme",
-    "created_at": "2025-01-11T09:48:14.859197",
+    "id": "build_2",
+    "description": "Create a Python API with FastAPI and SQLAlchemy",
     "status": "pending",
     "todos": [
-      "1. Initialize new React project with create-react-app",
-      "2. Set up project structure (components, styles, etc.)",
-      "3. Install required dependencies (react-router, etc.)",
-      "4. Create basic component layout",
-      "5. Implement core functionality",
-      "6. Add styling and polish UI",
-      "7. Test all features",
-      "8. Build and verify deployment"
+      {
+        "task": "Initialize project",
+        "status": "pending"
+      },
+      {
+        "task": "Setup basic structure",
+        "status": "pending"
+      },
+      {
+        "task": "Implement core features",
+        "status": "pending"
+      },
+      {
+        "task": "Add tests",
+        "status": "pending"
+      },
+      {
+        "task": "Documentation",
+        "status": "pending"
+      }
     ],
-    "current_step": 0
+    "created_at": "2025-01-11T09:52:48.257164",
+    "updated_at": "2025-01-11T09:52:48.257169"
   },
   {
-    "description": "Create a React todo app with local storage and dark mode theme",
-    "created_at": "2025-01-11T09:48:20.634346",
+    "id": "build_3",
+    "description": "Create a FastAPI service with user authentication",
     "status": "pending",
     "todos": [
-      "1. Initialize new React project with create-react-app",
-      "2. Set up project structure (components, styles, etc.)",
-      "3. Install required dependencies (react-router, etc.)",
-      "4. Create basic component layout",
-      "5. Implement core functionality",
-      "6. Add styling and polish UI",
-      "7. Test all features",
-      "8. Build and verify deployment"
+      {
+        "task": "Initialize project",
+        "status": "completed"
+      },
+      {
+        "task": "Setup basic structure",
+        "status": "pending"
+      },
+      {
+        "task": "Implement core features",
+        "status": "pending"
+      },
+      {
+        "task": "Add tests",
+        "status": "pending"
+      },
+      {
+        "task": "Documentation",
+        "status": "pending"
+      }
     ],
-    "current_step": 1
+    "created_at": "2025-01-11T09:53:45.642784",
+    "updated_at": "2025-01-11T09:53:45.642790"
   }
 ]

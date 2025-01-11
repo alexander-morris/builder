@@ -1,8 +1,12 @@
-import os
-import sys
+"""
+Command-line interface for the Build Agent.
+"""
+
 import cmd
+import os
 from typing import Optional
-from .agent_interface import AgentInterface
+
+from src.agent_interface import AgentInterface
 
 class AgentCLI(cmd.Cmd):
     intro = 'Welcome to the Build Agent CLI. Type help or ? to list commands.\n'
@@ -11,82 +15,100 @@ class AgentCLI(cmd.Cmd):
     def __init__(self):
         super().__init__()
         self.agent = AgentInterface(os.getcwd())
-        self.current_request = None
+        self.current_request_id: Optional[str] = None
 
     def do_build(self, arg):
         """Create a new build request with the given description.
         Usage: build <description>"""
         if not arg:
-            print("Error: Please provide a build description")
+            print("Error: Please provide a description of what you want to build")
             return
 
-        self.current_request = self.agent.create_build_request(arg)
-        print("\nCreated new build request:")
-        print(f"Description: {self.current_request.description}")
+        request = self.agent.create_build_request(arg)
+        self.current_request_id = request.id
+        print(f"\nCreated build request {request.id}")
         print("\nGenerated todos:")
-        for todo in self.current_request.todos:
-            print(f"  {todo}")
+        for todo in request.todos:
+            print(f"- {todo['task']} ({todo['status']})")
 
     def do_list(self, arg):
-        """List all active build requests."""
+        """List all active build requests.
+        Usage: list"""
         requests = self.agent.get_active_requests()
         if not requests:
             print("No active build requests")
             return
 
-        print("\nActive build requests:")
-        for i, request in enumerate(requests):
-            print(f"\n{i+1}. {request.description}")
-            print(f"   Status: {request.status}")
-            print(f"   Progress: {request.current_step}/{len(request.todos)} steps")
-            print("   Current todos:")
-            for j, todo in enumerate(request.todos[request.current_step:], request.current_step):
-                print(f"     {todo}")
+        for request in requests:
+            print(f"\nRequest {request.id}:")
+            print(f"Description: {request.description}")
+            print(f"Status: {request.status}")
+            print("Todos:")
+            for todo in request.todos:
+                print(f"- {todo['task']} ({todo['status']})")
 
     def do_next(self, arg):
-        """Process the next step of the current build request."""
-        if not self.current_request:
-            print("No active build request. Use 'build' to create one.")
+        """Process the next step of the current build request.
+        Usage: next"""
+        if not self.current_request_id:
+            print("No active build request. Use 'build' to create one first.")
             return
 
-        result = self.agent.process_next_step(self.current_request)
-        print(f"\n{result}")
-
-        if self.current_request.current_step >= len(self.current_request.todos):
-            print("\nBuild request completed!")
-            self.agent.update_request_status(self.current_request, "completed")
-            self.current_request = None
+        result = self.agent.process_next_step(self.current_request_id)
+        if result:
+            print(result)
+        else:
+            print("Error: Could not process next step")
 
     def do_status(self, arg):
-        """Show the status of the current build request."""
-        if not self.current_request:
-            print("No active build request")
+        """Show the status of the current build request.
+        Usage: status"""
+        if not self.current_request_id:
+            print("No active build request. Use 'build' to create one first.")
             return
 
-        print(f"\nCurrent build request:")
-        print(f"Description: {self.current_request.description}")
-        print(f"Status: {self.current_request.status}")
-        print(f"Progress: {self.current_request.current_step}/{len(self.current_request.todos)} steps")
-        print("\nRemaining todos:")
-        for todo in self.current_request.todos[self.current_request.current_step:]:
-            print(f"  {todo}")
+        request = next((r for r in self.agent.get_active_requests() 
+                       if r.id == self.current_request_id), None)
+        if request:
+            print(f"\nCurrent build request {request.id}:")
+            print(f"Description: {request.description}")
+            print(f"Status: {request.status}")
+            print("\nTodos:")
+            for todo in request.todos:
+                print(f"- {todo['task']} ({todo['status']})")
+        else:
+            print("Current build request not found")
+
+    def do_ask(self, arg):
+        """Ask a question about the build process or get help with requirements.
+        Usage: ask <question>"""
+        if not arg:
+            print("Error: Please provide a question")
+            return
+        
+        response = self.agent.get_user_assistance(arg)
+        print(f"\nAssistant: {response}")
+
+    def do_debug(self, arg):
+        """Get technical help or debugging assistance.
+        Usage: debug <question>"""
+        if not arg:
+            print("Error: Please provide a technical question or issue")
+            return
+        
+        response = self.agent.get_debug_assistance(arg)
+        print(f"\nTechnical Assistant: {response}")
 
     def do_quit(self, arg):
-        """Exit the CLI."""
-        print("\nGoodbye!")
+        """Exit the CLI.
+        Usage: quit"""
+        print("Goodbye!")
         return True
 
     def do_EOF(self, arg):
-        """Exit on EOF (Ctrl+D)."""
-        print("\nGoodbye!")
+        """Exit on EOF (Ctrl+D)"""
+        print("Goodbye!")
         return True
 
 def main():
-    try:
-        AgentCLI().cmdloop()
-    except KeyboardInterrupt:
-        print("\nGoodbye!")
-        sys.exit(0)
-
-if __name__ == '__main__':
-    main() 
+    AgentCLI().cmdloop() 
