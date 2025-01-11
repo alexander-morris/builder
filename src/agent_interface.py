@@ -20,12 +20,15 @@ class BuildRequest:
     todos: List[Dict]
     created_at: str
     updated_at: str
+    logs: List[Dict[str, str]]  # Add logs field
 
     def to_dict(self):
         return asdict(self)
 
     @classmethod
     def from_dict(cls, data):
+        if 'logs' not in data:
+            data['logs'] = []  # Initialize logs for older requests
         return cls(**data)
 
 class AgentInterface:
@@ -69,6 +72,25 @@ class AgentInterface:
         self.sandbox = SimpleSandbox(workspace_dir)
         self._load_requests()
 
+    def _add_log(self, request_id: str, message: str, level: str = "info"):
+        """Add a log entry to a build request."""
+        request = next((r for r in self.requests if r.id == request_id), None)
+        if request:
+            log_entry = {
+                "timestamp": datetime.now().isoformat(),
+                "message": message,
+                "level": level
+            }
+            request.logs.append(log_entry)
+            self._save_requests()
+
+    def get_logs(self, request_id: str) -> List[Dict[str, str]]:
+        """Get all logs for a build request."""
+        request = next((r for r in self.requests if r.id == request_id), None)
+        if request:
+            return request.logs
+        return []
+
     def _load_requests(self):
         if os.path.exists(self.requests_file):
             with open(self.requests_file, 'r') as f:
@@ -96,7 +118,20 @@ class AgentInterface:
         return code_blocks
 
     def create_build_request(self, description: str) -> BuildRequest:
+        request = BuildRequest(
+            id=f"build_{len(self.requests) + 1}",
+            description=description,
+            status="pending",
+            todos=[],
+            created_at=datetime.now().isoformat(),
+            updated_at=datetime.now().isoformat(),
+            logs=[]  # Initialize empty logs
+        )
+        
+        self._add_log(request.id, f"Created build request: {description}")
+        
         # Use user_claude to analyze the request and generate todos
+        self._add_log(request.id, "Analyzing request and generating todos...")
         response = self.user_claude.send_message(f"""
         Please analyze this build request and break it down into specific todos:
         {description}
@@ -125,24 +160,19 @@ class AgentInterface:
                     {"task": "Add tests and documentation", "status": "pending"},
                     {"task": "Review and optimize", "status": "pending"}
                 ]
+            
+            request.todos = todos
+            self._add_log(request.id, f"Generated {len(todos)} todos")
+            
         except Exception as e:
-            print(f"Error parsing todos: {e}")
-            todos = [
+            self._add_log(request.id, f"Error parsing todos: {str(e)}", "error")
+            request.todos = [
                 {"task": "Initialize project structure", "status": "pending"},
                 {"task": "Set up development environment", "status": "pending"},
                 {"task": "Implement core features", "status": "pending"},
                 {"task": "Add tests and documentation", "status": "pending"},
                 {"task": "Review and optimize", "status": "pending"}
             ]
-
-        request = BuildRequest(
-            id=f"build_{len(self.requests) + 1}",
-            description=description,
-            status="pending",
-            todos=todos,
-            created_at=datetime.now().isoformat(),
-            updated_at=datetime.now().isoformat()
-        )
         
         self.requests.append(request)
         self._save_requests()
@@ -167,12 +197,16 @@ class AgentInterface:
         # Find the next pending todo
         next_todo = next((todo for todo in request.todos if todo["status"] == "pending"), None)
         if not next_todo:
+            self._add_log(request_id, "All tasks completed", "info")
             request.status = "completed"
             self._save_requests()
             return "All tasks completed"
 
         try:
+            self._add_log(request_id, f"Starting task: {next_todo['task']}")
+            
             # Use debug_claude to help with implementation
+            self._add_log(request_id, "Generating implementation...")
             debug_response = self.debug_claude.send_message(f"""
             Please help implement this task:
             {next_todo['task']}
@@ -193,9 +227,11 @@ class AgentInterface:
             code_blocks = self._parse_code_blocks(debug_response)
             
             if not code_blocks:
+                self._add_log(request_id, "No code generated for task", "warning")
                 return f"No code generated for task: {next_todo['task']}"
                 
             # Create files and execute setup commands
+            self._add_log(request_id, f"Creating {len(code_blocks)} files...")
             for file_path, code in code_blocks:
                 if file_path:
                     # Create directory if needed
@@ -204,15 +240,18 @@ class AgentInterface:
                     # Write the file
                     with open(os.path.join(self.workspace_dir, file_path), 'w') as f:
                         f.write(code)
+                    self._add_log(request_id, f"Created/updated file: {file_path}")
 
             # Update todo status
             next_todo["status"] = "completed"
+            self._add_log(request_id, f"Completed task: {next_todo['task']}")
             self._save_requests()
             
             return f"Completed task: {next_todo['task']}\nCreated/updated {len(code_blocks)} files"
             
         except Exception as e:
             # Use debug_claude to analyze the error
+            self._add_log(request_id, f"Error: {str(e)}", "error")
             error_analysis = self.debug_claude.send_message(f"""
             Please analyze this error and suggest a fix:
             {str(e)}
@@ -222,6 +261,7 @@ class AgentInterface:
             - Project: {request.description}
             """)
             
+            self._add_log(request_id, "Generated error analysis", "info")
             return f"Error processing task: {str(e)}\nAnalysis: {error_analysis}"
 
     def get_user_assistance(self, query: str) -> str:

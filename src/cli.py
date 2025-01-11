@@ -110,5 +110,22 @@ class AgentCLI(cmd.Cmd):
         print("Goodbye!")
         return True
 
+    def do_logs(self, arg):
+        """Show logs for the current build request"""
+        if not self.current_request_id:
+            print("No active build request. Use 'build' to create one first.")
+            return
+
+        logs = self.agent.get_logs(self.current_request_id)
+        if not logs:
+            print("No logs found for this build request")
+            return
+
+        print(f"\nLogs for build request {self.current_request_id}:")
+        for log in logs:
+            timestamp = log['timestamp'].split('T')[1].split('.')[0]  # Extract time only
+            level = log['level'].upper()
+            print(f"{timestamp} [{level}] {log['message']}")
+
 def main():
     AgentCLI().cmdloop() 

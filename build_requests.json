@@ -114,5 +114,34 @@
     ],
     "created_at": "2025-01-11T10:04:22.904723",
     "updated_at": "2025-01-11T10:04:22.904742"
+  },
+  {
+    "id": "build_5",
+    "description": "rest api with cors handling and serve on port localhost:9999",
+    "status": "pending",
+    "todos": [
+      {
+        "task": "Initialize project structure",
+        "status": "pending"
+      },
+      {
+        "task": "Set up development environment",
+        "status": "pending"
+      },
+      {
+        "task": "Implement core features",
+        "status": "pending"
+      },
+      {
+        "task": "Add tests and documentation",
+        "status": "pending"
+      },
+      {
+        "task": "Review and optimize",
+        "status": "pending"
+      }
+    ],
+    "created_at": "2025-01-11T10:10:34.759746",
+    "updated_at": "2025-01-11T10:10:34.759755"
   }
 ]
