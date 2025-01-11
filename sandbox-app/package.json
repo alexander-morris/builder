@@ -1,0 +1,12 @@
+{
+  "name": "sandbox-app",
+  "version": "1.0.0",
+  "description": "Test Express.js app in sandbox",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}

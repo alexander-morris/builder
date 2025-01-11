@@ -1,0 +1,10 @@
+FROM busybox:latest
+
+RUN addgroup -g 1000 sandbox_group && adduser -D -u 1000 -G sandbox_group -h /home/sandbox_user -s /bin/sh sandbox_user
+
+RUN mkdir -p /workspace && chown -R sandbox_user:sandbox_group /workspace && chmod 755 /workspace
+
+USER sandbox_user
+WORKDIR /workspace
+
+CMD ["tail", "-f", "/dev/null"]

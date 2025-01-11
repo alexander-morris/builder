@@ -1,0 +1,50 @@
+[
+  {
+    "description": "Create a React todo app with local storage and dark mode theme",
+    "created_at": "2025-01-11T08:53:24.140785",
+    "status": "pending",
+    "todos": [
+      "1. Initialize new React project with create-react-app",
+      "2. Set up project structure (components, styles, etc.)",
+      "3. Install required dependencies (react-router, etc.)",
+      "4. Create basic component layout",
+      "5. Implement core functionality",
+      "6. Add styling and polish UI",
+      "7. Test all features",
+      "8. Build and verify deployment"
+    ],
+    "current_step": 0
+  },
+  {
+    "description": "Create a React todo app with local storage and dark mode theme",
+    "created_at": "2025-01-11T09:48:14.859197",
+    "status": "pending",
+    "todos": [
+      "1. Initialize new React project with create-react-app",
+      "2. Set up project structure (components, styles, etc.)",
+      "3. Install required dependencies (react-router, etc.)",
+      "4. Create basic component layout",
+      "5. Implement core functionality",
+      "6. Add styling and polish UI",
+      "7. Test all features",
+      "8. Build and verify deployment"
+    ],
+    "current_step": 0
+  },
+  {
+    "description": "Create a React todo app with local storage and dark mode theme",
+    "created_at": "2025-01-11T09:48:20.634346",
+    "status": "pending",
+    "todos": [
+      "1. Initialize new React project with create-react-app",
+      "2. Set up project structure (components, styles, etc.)",
+      "3. Install required dependencies (react-router, etc.)",
+      "4. Create basic component layout",
+      "5. Implement core functionality",
+      "6. Add styling and polish UI",
+      "7. Test all features",
+      "8. Build and verify deployment"
+    ],
+    "current_step": 1
+  }
+]
