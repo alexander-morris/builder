@@ -6,6 +6,8 @@ import subprocess
 import threading
 import queue
 import os
+import re
+import shlex
 
 class ChatViewer:
     def __init__(self, on_prompt_submit: Optional[Callable[[str], None]] = None):
@@ -17,6 +19,21 @@ class ChatViewer:
         self.window = tk.Tk()
         self.window.title("Agent Chat Viewer")
         self.window.geometry("1200x800")
+        
+        # Set workspace directory
+        self.workspace_dir = os.getcwd()
+        
+        # Define allowed commands and their patterns
+        self.allowed_commands = {
+            'ls': r'^ls(\s+-[a-zA-Z]+)*(\s+[\w./\-]+)*$',
+            'cat': r'^cat\s+[\w./\-]+$',
+            'mkdir': r'^mkdir(\s+-p)?\s+[\w./\-]+$',
+            'echo': r'^echo\s+.*$',
+            'rustc': r'^rustc\s+[\w./\-]+$',
+            'python': r'^python\s+[\w./\-]+\.py$',
+            'pytest': r'^pytest(\s+-[a-zA-Z]+)*(\s+[\w./\-]+)*$',
+            './hello': r'^./hello$'  # Only allow running the hello executable
+        }
         
         # Configure grid weights
         self.window.grid_rowconfigure(1, weight=1)
@@ -259,15 +276,61 @@ class ChatViewer:
             threading.Thread(target=self._run_command, args=(command,), daemon=True).start()
             self.window.after(100, self._check_command_output)
     
+    def _is_command_allowed(self, command: str) -> bool:
+        """Check if a command is allowed and safe to execute."""
+        try:
+            # Split command and get base command
+            parts = shlex.split(command)
+            if not parts:
+                return False
+            base_cmd = parts[0]
+            
+            # Check if base command is allowed
+            if base_cmd not in self.allowed_commands:
+                self._append_cli_output(f"Error: Command '{base_cmd}' is not allowed for security reasons.\n")
+                return False
+            
+            # Check if command matches allowed pattern
+            if not re.match(self.allowed_commands[base_cmd], command):
+                self._append_cli_output(f"Error: Command format not allowed.\n")
+                return False
+            
+            # Check for attempts to access parent directories
+            if '..' in command or '~' in command or command.startswith('/'):
+                self._append_cli_output("Error: Cannot access directories outside workspace.\n")
+                return False
+            
+            # For file operations, verify paths are within workspace
+            if base_cmd in ['cat', 'python', 'pytest']:
+                for part in parts[1:]:
+                    if not part.startswith('-'):  # Skip flags
+                        full_path = os.path.abspath(os.path.join(self.workspace_dir, part))
+                        if not full_path.startswith(self.workspace_dir):
+                            self._append_cli_output("Error: Cannot access files outside workspace.\n")
+                            return False
+            
+            return True
+            
+        except Exception as e:
+            self._append_cli_output(f"Error validating command: {str(e)}\n")
+            return False
+    
     def _run_command(self, command: str) -> None:
         """Run a command and put output in queue."""
         try:
+            # Validate command
+            if not self._is_command_allowed(command):
+                self.output_queue.put(None)
+                return
+            
+            # Execute command in workspace directory
             process = subprocess.Popen(
                 command,
                 shell=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                text=True
+                text=True,
+                cwd=self.workspace_dir
             )
             
             # Read output line by line

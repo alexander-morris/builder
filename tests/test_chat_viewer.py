@@ -187,20 +187,21 @@ def test_cli_command_execution(chat_viewer, mock_tk):
     mock_process.communicate.return_value = ("", "")
     
     with patch('subprocess.Popen', return_value=mock_process) as mock_popen:
-        # Set up CLI entry
+        # Set up CLI entry with an allowed command
         mock_entry = mock_tk['entry'].return_value
-        mock_entry.get.return_value = "test command"
+        mock_entry.get.return_value = "ls -la"
         
         # Execute command
         chat_viewer._execute_command()
         
         # Verify command execution
         mock_popen.assert_called_once_with(
-            "test command",
+            "ls -la",
             shell=True,
             stdout=ANY,
             stderr=ANY,
-            text=True
+            text=True,
+            cwd=chat_viewer.workspace_dir
         )
         
         # Verify entry was cleared
@@ -241,8 +242,53 @@ def test_cli_error_handling(chat_viewer, mock_tk):
     mock_process.stdout.readline.side_effect = Exception("Test error")
     
     with patch('subprocess.Popen', return_value=mock_process) as mock_popen:
+        # Set up CLI entry with an allowed command
+        mock_entry = mock_tk['entry'].return_value
+        mock_entry.get.return_value = "ls -la"
+        
         # Execute command that will raise error
         chat_viewer._execute_command()
         
         # Verify error handling
-        assert "Error executing command: Test error" in str(chat_viewer.output_queue.get()) 
+        assert "Error executing command: Test error" in str(chat_viewer.output_queue.get())
+
+def test_cli_security_restrictions(chat_viewer, mock_tk):
+    """Test CLI security restrictions."""
+    mock_text = mock_tk['text'].return_value
+    
+    # Test disallowed command
+    assert not chat_viewer._is_command_allowed("sudo rm -rf /")
+    assert not chat_viewer._is_command_allowed("cat /etc/passwd")
+    assert not chat_viewer._is_command_allowed("cd ..")
+    assert not chat_viewer._is_command_allowed("vim /etc/hosts")
+    
+    # Test allowed commands
+    assert chat_viewer._is_command_allowed("ls -la")
+    assert chat_viewer._is_command_allowed("cat README.md")
+    assert chat_viewer._is_command_allowed("mkdir -p test_dir")
+    assert chat_viewer._is_command_allowed("echo 'test'")
+    
+    # Test path traversal prevention
+    assert not chat_viewer._is_command_allowed("cat ../config.txt")
+    assert not chat_viewer._is_command_allowed("python ../../script.py")
+    assert not chat_viewer._is_command_allowed("cat ~/private.key")
+    
+    # Test command pattern validation
+    assert not chat_viewer._is_command_allowed("ls; rm -rf /")
+    assert not chat_viewer._is_command_allowed("cat file.txt | sudo tee /etc/passwd")
+    assert not chat_viewer._is_command_allowed("mkdir -p ../outside")
+
+def test_cli_workspace_restriction(chat_viewer, mock_tk):
+    """Test CLI workspace directory restriction."""
+    mock_process = Mock()
+    mock_process.stdout.readline.return_value = ""
+    mock_process.poll.return_value = 0
+    mock_process.communicate.return_value = ("", "")
+    
+    with patch('subprocess.Popen', return_value=mock_process) as mock_popen:
+        # Execute command
+        chat_viewer._run_command("ls -la")
+        
+        # Verify command runs in workspace directory
+        mock_popen.assert_called_once()
+        assert mock_popen.call_args[1]['cwd'] == chat_viewer.workspace_dir 
