@@ -84,3 +84,34 @@ def test_watch_log_common_error_keywords(temp_log_file, log_watcher):
     
     assert error.message == "Process failed to start"
     assert error.level == "WARNING" 
+
+def test_watch_log_memory_usage(temp_log_file, log_watcher):
+    """Test that memory usage stays constant regardless of file size."""
+    import psutil
+    import time
+    
+    # Create a large log file
+    with open(temp_log_file, 'w') as f:
+        for i in range(100000):  # 100K lines
+            f.write(f"Line {i}: Some log content here\n")
+        f.write("Error: Found it!\n")  # Error at the end
+    
+    # Get initial memory
+    process = psutil.Process()
+    initial_memory = process.memory_info().rss
+    
+    # Process the file
+    error_patterns = [r"Error:.*"]
+    error = next(log_watcher.watch_log(temp_log_file, error_patterns))
+    
+    # Get final memory
+    time.sleep(0.1)  # Let any GC happen
+    final_memory = process.memory_info().rss
+    
+    # Memory should not grow significantly (allow 10MB margin)
+    memory_diff = final_memory - initial_memory
+    assert memory_diff < 10 * 1024 * 1024, f"Memory grew by {memory_diff / 1024 / 1024:.2f}MB"
+    
+    # Verify we still found the error
+    assert error.message == "Error: Found it!"
+    assert error.level == "ERROR" 
