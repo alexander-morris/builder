@@ -148,24 +148,23 @@ CMD ["tail", "-f", "/dev/null"]"""
                 logger.error(f"Error during cleanup: {e}")
             self.container = None 
         
-    def write_file(self, file_path: str, content: str) -> Dict[str, str]:
+    def write_file(self, file_path: str, content: str) -> None:
         """Write content to a file in the sandbox."""
         if not self.container:
             raise RuntimeError("Container not initialized")
-            
-        # Encode content in base64 to avoid shell escaping issues
-        content_b64 = base64.b64encode(content.encode('utf-8')).decode('ascii')
-        
-        # Create a shell script to handle the file writing
-        script = f"""#!/bin/sh
-echo '{content_b64}' > temp.b64
-base64 -d temp.b64 > {file_path}
-rm temp.b64
-"""
-        # Write the script to a temporary file
-        script_b64 = base64.b64encode(script.encode('utf-8')).decode('ascii')
-        command = f"echo '{script_b64}' | base64 -d > write_file.sh && chmod +x write_file.sh && ./write_file.sh && rm write_file.sh"
-        return self.execute_command(command)
+
+        # Use printf with proper escaping to write content directly
+        escaped_content = content.replace("'", "'\\''")
+        command = f"sh -c \"printf '%s' '{escaped_content}' > {shlex.quote(file_path)}\""
+        result = self.execute_command(command)
+
+        if result["exit_code"] != 0:
+            raise RuntimeError(f"Failed to write file: {result['output']}")
+
+        # Verify the file was created
+        result = self.execute_command(f"test -f {shlex.quote(file_path)}")
+        if result["exit_code"] != 0:
+            raise RuntimeError(f"Failed to verify file creation: {file_path}")
         
     def validate_script_content(self, script_path: str, expected_content: str) -> Tuple[bool, str]:
         """
