@@ -166,10 +166,83 @@ def test_empty_prompt_handling(chat_viewer, mock_tk):
     # Verify callback was not called
     callback.assert_not_called()
 
-def test_keyboard_shortcut(chat_viewer, mock_tk):
-    """Test keyboard shortcut binding."""
+def test_keyboard_shortcuts(chat_viewer, mock_tk):
+    """Test keyboard shortcut bindings."""
     mock_entry = mock_tk['entry'].return_value
     
-    # Verify Enter key binding
-    assert mock_entry.bind.call_count == 1
-    mock_entry.bind.assert_called_with("<Return>", ANY) 
+    # Verify prompt entry has Enter key binding
+    assert '<Return>' in [call[0][0] for call in mock_entry.bind.call_args_list]
+    
+    # Verify CLI entry has Enter, Up, and Down key bindings
+    cli_bindings = [call[0][0] for call in mock_entry.bind.call_args_list]
+    assert '<Return>' in cli_bindings
+    assert '<Up>' in cli_bindings
+    assert '<Down>' in cli_bindings
+
+def test_cli_command_execution(chat_viewer, mock_tk):
+    """Test CLI command execution."""
+    mock_process = Mock()
+    mock_process.stdout.readline.side_effect = ["output line 1\n", ""]
+    mock_process.poll.return_value = 0
+    mock_process.communicate.return_value = ("", "")
+    
+    with patch('subprocess.Popen', return_value=mock_process) as mock_popen:
+        # Set up CLI entry
+        mock_entry = mock_tk['entry'].return_value
+        mock_entry.get.return_value = "test command"
+        
+        # Execute command
+        chat_viewer._execute_command()
+        
+        # Verify command execution
+        mock_popen.assert_called_once_with(
+            "test command",
+            shell=True,
+            stdout=ANY,
+            stderr=ANY,
+            text=True
+        )
+        
+        # Verify entry was cleared
+        mock_entry.delete.assert_called_with(0, tk.END)
+
+def test_cli_command_history(chat_viewer, mock_tk):
+    """Test CLI command history navigation."""
+    # Add some commands to history
+    chat_viewer.command_history = ["cmd1", "cmd2", "cmd3"]
+    chat_viewer.history_index = 3
+    
+    mock_entry = mock_tk['entry'].return_value
+    
+    # Test previous command
+    chat_viewer._previous_command()
+    mock_entry.delete.assert_called_with(0, tk.END)
+    mock_entry.insert.assert_called_with(0, "cmd3")
+    
+    # Test next command
+    chat_viewer._next_command()
+    mock_entry.delete.assert_called_with(0, tk.END)
+
+def test_cli_output_display(chat_viewer, mock_tk):
+    """Test CLI output display."""
+    mock_text = mock_tk['text'].return_value
+    
+    # Test appending output
+    chat_viewer._append_cli_output("test output")
+    
+    # Verify text widget was enabled, updated, and disabled
+    assert mock_text.config.call_count >= 2
+    assert mock_text.insert.call_count == 1
+    assert mock_text.see.call_count == 1
+
+def test_cli_error_handling(chat_viewer, mock_tk):
+    """Test CLI error handling."""
+    mock_process = Mock()
+    mock_process.stdout.readline.side_effect = Exception("Test error")
+    
+    with patch('subprocess.Popen', return_value=mock_process) as mock_popen:
+        # Execute command that will raise error
+        chat_viewer._execute_command()
+        
+        # Verify error handling
+        assert "Error executing command: Test error" in str(chat_viewer.output_queue.get()) 
