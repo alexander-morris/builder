@@ -85,5 +85,34 @@
     ],
     "created_at": "2025-01-11T09:53:45.642784",
     "updated_at": "2025-01-11T09:53:45.642790"
+  },
+  {
+    "id": "build_4",
+    "description": "Create a simple FastAPI service with SQLAlchemy and user authentication",
+    "status": "pending",
+    "todos": [
+      {
+        "task": "Initialize project structure",
+        "status": "completed"
+      },
+      {
+        "task": "Set up development environment",
+        "status": "pending"
+      },
+      {
+        "task": "Implement core features",
+        "status": "pending"
+      },
+      {
+        "task": "Add tests and documentation",
+        "status": "pending"
+      },
+      {
+        "task": "Review and optimize",
+        "status": "pending"
+      }
+    ],
+    "created_at": "2025-01-11T10:04:22.904723",
+    "updated_at": "2025-01-11T10:04:22.904742"
   }
 ]

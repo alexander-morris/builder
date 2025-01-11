@@ -1,12 +1,21 @@
 """
-Stub implementation of Claude client for testing.
+Claude client implementation using Anthropic API.
 """
 
+import os
+from typing import Optional
+import anthropic
+
 class ClaudeClient:
-    def __init__(self, api_key: str = None):
-        self.api_key = api_key
+    def __init__(self, api_key: Optional[str] = None):
+        self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
+        if not self.api_key:
+            raise ValueError("Claude API key not provided. Set ANTHROPIC_API_KEY environment variable.")
+            
+        self.client = anthropic.Client(api_key=self.api_key)
         self.system_prompt = None
         self.context = []
+        self.model = "claude-3-opus-20240229"
 
     def set_system_prompt(self, prompt: str):
         """Set the system prompt for the Claude instance."""
@@ -17,48 +26,24 @@ class ClaudeClient:
         self.context.append(context)
 
     def send_message(self, message: str) -> str:
-        """Send a message to Claude and get a response.
-        This is a stub implementation that returns predefined responses."""
-        
-        # Return different responses based on the type of query
-        if "how" in message.lower() or "what" in message.lower():
-            if "structure" in message.lower() and "api" in message.lower():
-                return """
-                For a FastAPI and SQLAlchemy project, I recommend the following structure:
-
-                1. Use RESTful endpoints following standard conventions:
-                   - GET /items - List all items
-                   - POST /items - Create new item
-                   - GET /items/{id} - Get specific item
-                   - PUT /items/{id} - Update item
-                   - DELETE /items/{id} - Delete item
-
-                2. Organize your code into:
-                   - routes/ - API endpoint definitions
-                   - models/ - SQLAlchemy models
-                   - schemas/ - Pydantic schemas
-                   - services/ - Business logic
-                   - dependencies/ - Shared dependencies
-
-                3. Use dependency injection for database sessions
-                4. Implement proper error handling and validation
-                5. Add authentication middleware where needed
-                """
-            elif "implement" in message.lower():
-                return """
-                Here's a step-by-step implementation plan:
-                1. Set up the project structure
-                2. Define database models
-                3. Create API routes
-                4. Add validation and error handling
-                5. Test the endpoints
-                """
-        elif "error" in message.lower():
-            return """
-            Based on the error message, here are potential solutions:
-            1. Check your dependencies are installed correctly
-            2. Verify your database connection
-            3. Ensure proper error handling
-            """
-        else:
-            return "I understand your request. Let me help you with that step by step." 
+        """Send a message to Claude and get a response."""
+        try:
+            # Construct the message with system prompt and context
+            system = self.system_prompt if self.system_prompt else ""
+            
+            # Create the message
+            response = self.client.messages.create(
+                model=self.model,
+                system=system,
+                messages=[
+                    *[{"role": "user", "content": ctx} for ctx in self.context],
+                    {"role": "user", "content": message}
+                ],
+                max_tokens=2000,
+                temperature=0.7
+            )
+            
+            return response.content[0].text
+            
+        except Exception as e:
+            return f"Error communicating with Claude: {str(e)}" 

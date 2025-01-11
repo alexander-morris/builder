@@ -5,8 +5,9 @@ Build Agent interface for managing build requests and Claude sessions.
 from dataclasses import dataclass, asdict
 import json
 import os
+import re
 from datetime import datetime
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 
 from src.api.claude_client import ClaudeClient
 from src.sandbox.environment import SimpleSandbox
@@ -44,15 +45,25 @@ class AgentInterface:
         2. Break down requirements into clear steps
         3. Provide status updates and explain progress
         4. Answer questions about the build process
+        
+        When generating todos, format them as a list of dictionaries with 'task' and 'status' keys.
+        Each task should be specific and actionable.
         """)
         
         self.debug_claude.set_system_prompt("""
         You are a technical debugging assistant focused on solving code and build issues.
         Your role is to:
-        1. Analyze error messages and logs
-        2. Suggest specific code fixes
+        1. Generate working code solutions
+        2. Analyze error messages and logs
         3. Help troubleshoot build failures
         4. Provide technical explanations
+        
+        When generating code:
+        1. Include all necessary imports
+        2. Follow best practices and patterns
+        3. Add helpful comments
+        4. Consider error handling
+        5. Make code modular and maintainable
         """)
         
         self.sandbox = SimpleSandbox(workspace_dir)
@@ -69,23 +80,60 @@ class AgentInterface:
         with open(self.requests_file, 'w') as f:
             json.dump([r.to_dict() for r in self.requests], f, indent=2)
 
+    def _parse_code_blocks(self, text: str) -> List[Tuple[str, str]]:
+        """Extract code blocks and their file paths from text."""
+        # Pattern to match markdown code blocks with optional file paths
+        pattern = r"```(\w+)?\s*(?:\[([\w\-\./]+)\])?\n(.*?)```"
+        matches = re.finditer(pattern, text, re.DOTALL)
+        
+        code_blocks = []
+        for match in matches:
+            lang = match.group(1) or ""
+            path = match.group(2) or ""
+            code = match.group(3).strip()
+            code_blocks.append((path, code))
+            
+        return code_blocks
+
     def create_build_request(self, description: str) -> BuildRequest:
         # Use user_claude to analyze the request and generate todos
         response = self.user_claude.send_message(f"""
         Please analyze this build request and break it down into specific todos:
         {description}
         
+        For each todo, specify:
+        1. The specific task to be done
+        2. Any dependencies or prerequisites
+        3. Expected output or success criteria
+        
         Format the response as a list of dictionaries with 'task' and 'status' keys.
+        Make tasks granular and actionable.
         """)
         
-        # Parse the response to get todos (simplified for stub)
-        todos = [
-            {"task": "Initialize project", "status": "pending"},
-            {"task": "Setup basic structure", "status": "pending"},
-            {"task": "Implement core features", "status": "pending"},
-            {"task": "Add tests", "status": "pending"},
-            {"task": "Documentation", "status": "pending"}
-        ]
+        # Parse the response to extract structured todos
+        try:
+            # Look for a code block with JSON content
+            if "```json" in response:
+                json_str = response.split("```json")[1].split("```")[0].strip()
+                todos = json.loads(json_str)
+            else:
+                # Fallback to default todos
+                todos = [
+                    {"task": "Initialize project structure", "status": "pending"},
+                    {"task": "Set up development environment", "status": "pending"},
+                    {"task": "Implement core features", "status": "pending"},
+                    {"task": "Add tests and documentation", "status": "pending"},
+                    {"task": "Review and optimize", "status": "pending"}
+                ]
+        except Exception as e:
+            print(f"Error parsing todos: {e}")
+            todos = [
+                {"task": "Initialize project structure", "status": "pending"},
+                {"task": "Set up development environment", "status": "pending"},
+                {"task": "Implement core features", "status": "pending"},
+                {"task": "Add tests and documentation", "status": "pending"},
+                {"task": "Review and optimize", "status": "pending"}
+            ]
 
         request = BuildRequest(
             id=f"build_{len(self.requests) + 1}",
@@ -132,19 +180,46 @@ class AgentInterface:
             Context:
             - Project: {request.description}
             - Current directory: {self.workspace_dir}
+            
+            Provide the implementation as code blocks with file paths in this format:
+            ```python [path/to/file.py]
+            # Code here
+            ```
+            
+            Include all necessary files, imports, and setup.
             """)
+
+            # Extract and process code blocks
+            code_blocks = self._parse_code_blocks(debug_response)
+            
+            if not code_blocks:
+                return f"No code generated for task: {next_todo['task']}"
+                
+            # Create files and execute setup commands
+            for file_path, code in code_blocks:
+                if file_path:
+                    # Create directory if needed
+                    os.makedirs(os.path.dirname(os.path.join(self.workspace_dir, file_path)), exist_ok=True)
+                    
+                    # Write the file
+                    with open(os.path.join(self.workspace_dir, file_path), 'w') as f:
+                        f.write(code)
 
             # Update todo status
             next_todo["status"] = "completed"
             self._save_requests()
             
-            return f"Completed task: {next_todo['task']}"
+            return f"Completed task: {next_todo['task']}\nCreated/updated {len(code_blocks)} files"
             
         except Exception as e:
             # Use debug_claude to analyze the error
             error_analysis = self.debug_claude.send_message(f"""
             Please analyze this error and suggest a fix:
             {str(e)}
+            
+            Context:
+            - Task: {next_todo['task']}
+            - Project: {request.description}
             """)
             
             return f"Error processing task: {str(e)}\nAnalysis: {error_analysis}"
