@@ -12,10 +12,10 @@ class ClaudeClient:
         if not self.api_key:
             raise ValueError("Claude API key not provided. Set ANTHROPIC_API_KEY environment variable.")
             
-        self.client = anthropic.Client(api_key=self.api_key)
+        self.client = anthropic.Anthropic(api_key=self.api_key)
         self.system_prompt = None
         self.context = []
-        self.model = "claude-3-opus-20240229"
+        self.model = os.getenv("CLAUDE_MODEL", "claude-3-opus-20240229")
 
     def set_system_prompt(self, prompt: str):
         """Set the system prompt for the Claude instance."""
@@ -29,21 +29,25 @@ class ClaudeClient:
         """Send a message to Claude and get a response."""
         try:
             # Construct the message with system prompt and context
-            system = self.system_prompt if self.system_prompt else ""
+            prompt = ""
+            if self.system_prompt:
+                prompt += f"\n\nSystem: {self.system_prompt}\n\n"
             
-            # Create the message
-            response = self.client.messages.create(
+            for ctx in self.context:
+                prompt += f"Human: {ctx}\n\nAssistant: I understand.\n\n"
+                
+            prompt += f"Human: {message}\n\nAssistant:"
+            
+            # Create the completion
+            response = self.client.completions.create(
+                prompt=prompt,
                 model=self.model,
-                system=system,
-                messages=[
-                    *[{"role": "user", "content": ctx} for ctx in self.context],
-                    {"role": "user", "content": message}
-                ],
-                max_tokens=2000,
-                temperature=0.7
+                max_tokens_to_sample=2000,
+                temperature=0.7,
+                stop_sequences=["\n\nHuman:"]
             )
             
-            return response.content[0].text
+            return response.completion
             
         except Exception as e:
-            return f"Error communicating with Claude: {str(e)}" 
+            return {"role": "error", "content": f"Error communicating with Claude: {str(e)}"}

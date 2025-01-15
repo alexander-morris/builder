@@ -1,6 +1,10 @@
+anthropic==0.3.11
 fastapi
 uvicorn
 sqlalchemy
 pydantic
 python-jose[cryptography]
 passlib[bcrypt]
+python-dotenv
+gitpython
+pytest
